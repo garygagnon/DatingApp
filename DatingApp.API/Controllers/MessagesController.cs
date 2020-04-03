@@ -87,5 +87,48 @@ namespace DatingApp.API.Controllers
 
             throw new Exception("Creating the messaged failed on save");
         }
+
+        [HttpPost("{id}")]
+        public async Task<IActionResult> DeleteMessage(int id, int userid) {
+            if(userid != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value)) {
+                return Unauthorized();
+            }
+
+            var messageFromRepo = await _repo.GetMessage(id);
+            if(messageFromRepo.SenderId == userid) {
+                messageFromRepo.SenderDeleted = true;
+            }
+
+            if(messageFromRepo.RecipientId == userid) {
+                messageFromRepo.RecipientDeleted = true;
+            }
+
+            if(messageFromRepo.SenderDeleted && messageFromRepo.RecipientDeleted) {
+                _repo.Delete(messageFromRepo);
+            }
+
+            if(await _repo.SaveAll()) {
+                return NoContent();
+            }
+
+            throw new Exception("Error deleting the message");
+        }
+
+        [HttpPost("{id}/read")]
+        public async Task<IActionResult> MarkMessageAsRead(int userid, int id) {
+            if(userid != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value)) {
+                return Unauthorized();
+            }
+
+            var message = await _repo.GetMessage(id);
+            if(message.RecipientId != userid) {
+                return Unauthorized();
+            }
+
+            message.IsRead = true;
+            message.DateRead = DateTime.Now;
+            await _repo.SaveAll();
+            return NoContent();
+        }
     }
 }
